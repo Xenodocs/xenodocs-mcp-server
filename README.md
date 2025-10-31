@@ -38,7 +38,7 @@ No tab-switching, no hallucinated APIs that don't exist, no outdated code genera
 
 - Python >= 3.10
 - VS Code, Cursor, Claude Desktop, or another MCP Client
-- XenoDocs API Key (Get yours by creating an account at [xenodocs.com/dashboard](https://xenodocs.com/dashboard))
+- XenoDocs API Key (Get yours by creating an account at [xenodocs.com/account/api-keys](https://www.xenodocs.com/account/api-keys)
 
 ### Method 1: Using uv (Recommended)
 
