@@ -1,10 +1,8 @@
 import os
 import sys
 import httpx
-import asyncio
 from fastmcp import FastMCP
 
-# Initialize FastMCP server
 mcp = FastMCP("xenodocs")
 
 # ============================================================================
@@ -12,16 +10,12 @@ mcp = FastMCP("xenodocs")
 # ============================================================================
 
 def get_config():
-    """
-    Get configuration from environment variables.
-    These can be set in VS Code's settings.json or mcp.json config.
-    """
+    """Get configuration from environment variables"""
     api_url = os.getenv("XENODOCS_API_URL", "https://backend.xenodocs.com")
     api_key = os.getenv("XENODOCS_API_KEY", "")
     
     if not api_key:
         print("WARNING: XENODOCS_API_KEY not set!", file=sys.stderr)
-        print("Please configure it in your MCP client settings.", file=sys.stderr)
     
     return {
         "api_url": api_url,
@@ -36,7 +30,7 @@ config = get_config()
 # ============================================================================
 
 class XenoDocsAPIClient:
-    """Client for communicating with XenoDocs backend APIs"""
+    """Client for XenoDocs backend APIs"""
 
     def __init__(self, api_url: str, api_key: str, timeout: int = 30):
         self.api_url = api_url.rstrip('/')
@@ -48,103 +42,55 @@ class XenoDocsAPIClient:
         }
 
     async def _make_request(self, endpoint: str, data: dict) -> dict:
-        """Make POST request to XenoDocs API with error handling"""
+        """Make POST request to XenoDocs API"""
         url = f"{self.api_url}{endpoint}"
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(
-                    url,
-                    headers=self.headers,
-                    json=data
-                )
+                response = await client.post(url, headers=self.headers, json=data)
                 response.raise_for_status()
                 return response.json()
 
         except httpx.ConnectError:
-            return {
-                "status": "error",
-                "message": f"Cannot connect to XenoDocs at {self.api_url}. Please check your connection."
-            }
+            return {"success": False, "error": f"Cannot connect to {self.api_url}"}
         except httpx.TimeoutException:
-            return {
-                "status": "error",
-                "message": "Request timeout - server took too long to respond"
-            }
+            return {"success": False, "error": "Request timeout"}
         except httpx.HTTPStatusError as e:
             try:
                 error_data = e.response.json()
-                return {
-                    "status": "error",
-                    "message": error_data.get("error", str(e))
-                }
+                return {"success": False, "error": error_data.get("error", str(e))}
             except:
-                return {
-                    "status": "error",
-                    "message": f"HTTP {e.response.status_code}: {str(e)}"
-                }
+                return {"success": False, "error": f"HTTP {e.response.status_code}"}
         except Exception as e:
-            return {
-                "status": "error",
-                "message": f"Unexpected error: {str(e)}"
-            }
+            return {"success": False, "error": str(e)}
 
-    async def search_library_name(self, query: str, top_k: int = 3) -> dict:
-        """Search for matching library names via XenoDocs API"""
+    async def search_library_name(self, library_name: str, query: str) -> dict:
+        """Search for library using AI-powered selection"""
+        if not library_name or not library_name.strip():
+            return {"success": False, "error": "library_name cannot be empty"}
+
         if not query or not query.strip():
-            return {
-                "status": "error",
-                "message": "Query cannot be empty",
-                "matches": []
-            }
+            return {"success": False, "error": "query cannot be empty"}
 
-        top_k = max(1, min(20, int(top_k)))
-
-        result = await self._make_request(
+        return await self._make_request(
             "/mcp/search-library-name/",
-            {
-                "library_name": query.strip(),
-                "top_k": top_k
-            }
+            {"library_name": library_name.strip(), "query": query.strip()}
         )
-
-        return result
 
     async def search_documentation(self, library_name: str, query: str) -> dict:
-        """Search library documentation via XenoDocs API"""
+        """Search library documentation"""
         if not library_name or not library_name.strip():
-            return {
-                "status": "error",
-                "context": "Library name cannot be empty"
-            }
+            return {"success": False, "error": "library_name cannot be empty"}
 
         if not query or not query.strip():
-            return {
-                "status": "error",
-                "context": "Query cannot be empty"
-            }
+            return {"success": False, "error": "query cannot be empty"}
 
-        result = await self._make_request(
+        return await self._make_request(
             "/mcp/search-library-docs/",
-            {
-                "library_name": library_name.strip(),
-                "query": query.strip(),
-                "top_k": 25
-            }
+            {"library_name": library_name.strip(), "query": query.strip(), "top_k": 25}
         )
 
-        # Simplify response for MCP tool
-        if result.get("status") == "success":
-            return {
-                "context": result.get("context", ""),
-                "chunks_found": result.get("chunks_found", 0)
-            }
-        else:
-            return {
-                "context": f"Error: {result.get('message', 'Unknown error')}"
-            }
 
-# Initialize API client
 api_client = XenoDocsAPIClient(
     api_url=config["api_url"],
     api_key=config["api_key"],
@@ -156,56 +102,51 @@ api_client = XenoDocsAPIClient(
 # ============================================================================
 
 @mcp.tool()
-async def search_library_name(library_name: str, top_k: int = 3) -> str:
+async def search_library_name(library_name: str, query: str) -> str:
     """
-    Search for matching library names in the XenoDocs documentation database.
-
+    Search for the correct library using AI-powered selection.
+    
     Args:
-        library_name: The name or partial name of the library to search for
-        top_k: Maximum number of matching libraries to return (default: 3, max: 20)
-
+        library_name: Library to search for (e.g., "langchain", "react")
+        query: Your requirements to help select the right version
+               (e.g., "use version 1", "latest with hooks")
+    
     Returns:
-        JSON string with matching library names and their details
+        JSON with selected library
     """
-    result = await api_client.search_library_name(library_name, top_k)
+    result = await api_client.search_library_name(library_name, query)
     return str(result)
+
 
 @mcp.tool()
 async def search_library(library_name: str, query: str) -> str:
     """
-    Search for specific information within a library's documentation.
-
+    Search documentation within a specific library.
+    
     Args:
-        library_name: The exact name of the library to search in
-        query: The search query describing what you're looking for
-
+        library_name: Exact library name from search_library_name
+        query: What to search for in the docs
+    
     Returns:
-        JSON string with relevant documentation context
+        JSON with documentation context
     """
     result = await api_client.search_documentation(library_name, query)
     return str(result)
+
 
 # ============================================================================
 # MAIN
 # ============================================================================
 
 def main():
-    """Main entry point for the MCP server"""
+    """Main entry point for XenoDocs MCP server"""
     print("=" * 60, file=sys.stderr)
-    print("Starting XenoDocs MCP Server", file=sys.stderr)
+    print("XenoDocs MCP Server", file=sys.stderr)
     print("=" * 60, file=sys.stderr)
-    print(f"API URL: {config['api_url']}", file=sys.stderr)
-    print(f"API Key: {'✓ Configured' if config['api_key'] else '✗ NOT SET'}", file=sys.stderr)
+    print(f"API: {config['api_url']}", file=sys.stderr)
+    print(f"Key: {'✓' if config['api_key'] else '✗ NOT SET'}", file=sys.stderr)
+    print("=" * 60, file=sys.stderr)
     
-    if not config['api_key']:
-        print("\n⚠️  WARNING: XENODOCS_API_KEY not set!", file=sys.stderr)
-        print("Configure it in your MCP client settings (see README)", file=sys.stderr)
-    
-    print("=" * 60, file=sys.stderr)
-    print("Transport: stdio (VS Code/Claude Desktop compatible)", file=sys.stderr)
-    print("=" * 60, file=sys.stderr)
-
-    # Use stdio transport for MCP clients
     mcp.run(transport="stdio")
 
 if __name__ == "__main__":
