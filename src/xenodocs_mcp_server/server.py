@@ -37,9 +37,9 @@ class XenoDocsAPIClient:
         self.api_key = api_key
         self.timeout = timeout
         self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "X-API-Key": self.api_key,
             "Content-Type": "application/json"
-        }
+            }
 
     async def _make_request(self, endpoint: str, data: dict) -> dict:
         """Make POST request to XenoDocs API"""
@@ -119,9 +119,9 @@ async def search_library_name(library_name: str, query: str) -> str:
 
 
 @mcp.tool()
-async def search_library(library_name: str, query: str) -> str:
+async def search_latest_documentation(library_name: str, query: str) -> str:
     """
-    Search documentation within a specific library.
+    Search latest documentation within a specific library for context.
     
     Args:
         library_name: Exact library name from search_library_name
