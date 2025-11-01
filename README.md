@@ -275,6 +275,3 @@ If you see `WARNING: XENODOCS_API_KEY not set!`, make sure you've configured the
 
 </details>
 
-## 📄 License
-
-MIT
