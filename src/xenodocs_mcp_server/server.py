@@ -11,7 +11,7 @@ mcp = FastMCP("xenodocs")
 
 def get_config():
     """Get configuration from environment variables"""
-    api_url = os.getenv("XENODOCS_API_URL", "https://backend.xenodocs.com")
+    api_url = os.getenv("XENODOCS_API_URL", "https://api.xenodocs.org")
     api_key = os.getenv("XENODOCS_API_KEY", "")
     
     if not api_key:
