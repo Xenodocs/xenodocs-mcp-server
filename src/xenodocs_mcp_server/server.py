@@ -26,7 +26,7 @@ def get_config():
 config = get_config()
 
 # ============================================================================
-# DJANGO API CLIENT
+# API CLIENT
 # ============================================================================
 
 class XenoDocsAPIClient:
@@ -104,15 +104,21 @@ api_client = XenoDocsAPIClient(
 @mcp.tool()
 async def search_library_name(library_name: str, query: str) -> str:
     """
-    Search for the correct library using AI-powered selection.
+    CRITICAL: Always use this tool FIRST before generating code for any third-party library.
+    
+    This tool identifies the correct library version and official documentation source.
+    Using this prevents hallucinations and ensures you use the most up-to-date APIs.
+    
+    Usage Strategy:
+    1. Call this tool to find the exact library name (e.g., mapping "langchain" to the specific package).
+    2. Use the result from this tool to call 'search_latest_documentation'.
     
     Args:
-        library_name: Library to search for (e.g., "langchain", "react")
-        query: Your requirements to help select the right version
-               (e.g., "use version 1", "latest with hooks")
+        library_name: The general name of the library (e.g., "langchain", "pydantic", "nextjs").
+        query: Specific requirements or version constraints (e.g., "v2 with server actions", "latest stable").
     
     Returns:
-        JSON with selected library
+        JSON containing the canonical library name and version details.
     """
     result = await api_client.search_library_name(library_name, query)
     return str(result)
@@ -121,14 +127,17 @@ async def search_library_name(library_name: str, query: str) -> str:
 @mcp.tool()
 async def search_latest_documentation(library_name: str, query: str) -> str:
     """
-    Search latest documentation within a specific library for context.
+    Retrieve official, up-to-date code examples and API references for a library.
+    
+    Use this tool to find the exact syntax, function signatures, and usage patterns.
+    Do not rely on your internal training data as it may be outdated; always verify with this tool.
     
     Args:
-        library_name: Exact library name from search_library_name
-        query: What to search for in the docs
+        library_name: The exact library name returned by the 'search_library_name' tool.
+        query: A natural language question about what you need (e.g., "how to create a chain", "authentication middleware example").
     
     Returns:
-        JSON with documentation context
+        JSON string containing relevant documentation snippets and code examples.
     """
     result = await api_client.search_documentation(library_name, query)
     return str(result)
